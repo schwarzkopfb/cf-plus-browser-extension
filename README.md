@@ -1,6 +1,7 @@
 # cf-plus-browser-extension
 
 [What's this?](https://github.com/schwarzkopfb/cf-plus)
+[Server repo](https://github.com/schwarzkopfb/cf-plus-server)
 
 The extension extracts `username` and `numOfPowerUps` from the UI and automatically registers a user with the `roomId` coming from the config. Then it periodically pulls the generated random powerUp suggestions for that user and highlights them.
 It also has a button to send a request to the server to regenerate all the suggestions for users with the same `roomId`.
@@ -13,4 +14,4 @@ Tested in Chrome and Edge.
 
 <img width="852" alt="suggestions" src="https://user-images.githubusercontent.com/1900242/194119911-8bbdc43e-f195-4d00-a30e-910728c78560.png">
 
-[MIT](LICENSE)
+[MIT licensed](LICENSE)
