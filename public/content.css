@@ -1,5 +1,5 @@
 .cfp__module_highlight {
-    z-index: 99999999998; /* just under the Ad Container */
+    z-index: 10000;
     position: fixed;
     width: 80px;
     height: 86px;
@@ -12,7 +12,7 @@
     transition: opacity 0.7s linear;
 }
 
-.cfp__module_highlight.cfp__hidden {
+.cfp__hidden {
     opacity: 0;
 }
 
@@ -51,6 +51,45 @@
     margin-left: -10px;
     transform: translateY(50px) rotateZ(45deg);
     animation: cfp__tip_up 6s cubic-bezier(0, 0.6, 1, 0.4) infinite 2s;
+}
+
+div.cfp__util-buttons {
+    position: fixed;
+    margin-left: 10px;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10000;
+    transition: opacity 0.7s linear;
+}
+
+button.cfp__util-button {
+    outline: none;
+    background: #4285F4;
+    width: 200px;
+    border: 0;
+    border-radius: 4px;
+    padding: 12px 20px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: inherit;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: -1px -1px 36px 6px rgba(0,0,0,0.47);
+    margin: 20px;
+}
+
+button[disabled].cfp__util-button {
+    background: #ccc;
+    cursor: default;
+    box-shadow: none;
+}
+
+button.cfp__show-suggestions-button {
+    right: 15px;
+    bottom: 15px;
 }
   
 @keyframes cfp__tip_up {

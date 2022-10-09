@@ -1,10 +1,15 @@
+import { Config, sendShuffleSuggestionsRequest } from './utils';
+
 const $ = document.querySelector.bind(document);
 const $$ = document.querySelectorAll.bind(document);
+const $body = document.body;
+const createElement = document.createElement.bind(document);
 
 let user: User;
 let config: Config;
 let $highlightUp: HTMLDivElement;
 let $highlightDown: HTMLDivElement;
+let $buttonsContainer: HTMLDivElement;
 
 export interface User {
     username: string;
@@ -12,12 +17,6 @@ export interface User {
     slotUp: string;
     slotDown: string;
     updatedAt: number;
-    roomId: string;
-}
-
-interface Config {
-    serverUrl: string;
-    serverAccessToken: string;
     roomId: string;
 }
 
@@ -57,7 +56,7 @@ function waitForElems(selector: string): Promise<NodeListOf<Element>> {
 
 async function loadConfig(): Promise<Config> {
     return new Promise((resolve) => {
-        chrome.storage.sync.get(['serverUrl', 'serverAccessToken', 'roomId'], (data) => resolve(data as Config));
+        chrome.storage.sync.get(['serverUrl', 'serverAccessToken', 'roomId', 'showButtons'], (data) => resolve(data as Config));
     });
 }
 
@@ -112,7 +111,7 @@ async function fetchUser(): Promise<User> {
 
 function createHighlights(): void {
     for (const isUp of [true, false]) {
-        const $highlight = document.createElement('div');
+        const $highlight = createElement('div');
         $highlight.classList.add('cfp__module_highlight', 'cfp__hidden');
 
         if (isUp) {
@@ -122,8 +121,32 @@ function createHighlights(): void {
             $highlightDown = $highlight;
         }
 
-        document.body.appendChild($highlight);
+        $body.insertBefore($highlight, $body.firstChild);
     }
+}
+
+function createButtons(): void {
+    $buttonsContainer = createElement('div');
+    const $showButton = createElement('button');
+    const $shuffleButton = createElement('button');
+
+    $buttonsContainer.classList.add('cfp__util-buttons', 'cfp__hidden');
+    $showButton.classList.add('cfp__util-button', 'cfp__show-suggestions-button');
+    $shuffleButton.classList.add('cfp__util-button', 'cfp__shuffle-suggestions-button');
+
+    $showButton.innerText = 'Show suggestions';
+    $shuffleButton.innerText = 'Shuffle for everyone';
+
+    $showButton.addEventListener('click', () => {
+        showHighlights();
+    });
+    $shuffleButton.addEventListener('click', () => {
+        sendShuffleSuggestionsRequest(config);
+    });
+
+    $buttonsContainer.appendChild($showButton);
+    $buttonsContainer.appendChild($shuffleButton);
+    $body.insertBefore($buttonsContainer, $body.firstChild);
 }
 
 async function moveHighlightToModule($highlight: HTMLDivElement, moduleName: string): Promise<void> {
@@ -137,10 +160,12 @@ async function moveHighlightToModule($highlight: HTMLDivElement, moduleName: str
         }
         else if (name === moduleName) {
             const content = m.querySelector('.module-card__content');
-            const { x, y } = content!.getBoundingClientRect();
+            const { x, y, width, height } = content!.getBoundingClientRect();
 
             $highlight.style.left = `${x}px`;
             $highlight.style.top = `${y}px`;
+            $highlight.style.width = `${width}px`;
+            $highlight.style.height = `${height}px`;
         }
     });
 }
@@ -168,6 +193,14 @@ async function updateHighlights(): Promise<void> {
     }
 }
 
+function showButtons(): void {
+    if (!$buttonsContainer) {
+        return;
+    }
+
+    $buttonsContainer.classList.remove('cfp__hidden');
+}
+
 function isAdContainerVisible(): boolean {
     const $container = $('.fullscreen-ad-container') as HTMLDivElement;
     return $container?.style.display !== 'none';
@@ -177,28 +210,54 @@ function isPlayButtonExists() {
     return !!$('.play-button');
 }
 
+async function waitForAdContainerToBeHidden(): Promise<void> {
+    while (isAdContainerVisible()) {
+        await sleep();
+    }
+}
+
+async function updateState(): Promise<void> {
+    // checking the DOM is way more cheap than a network request and
+    // we're only interested in updates of user's powerUp on selection page
+    if (!isPlayButtonExists() || isAdContainerVisible()) {
+        return;
+    }
+
+    user = await fetchUser();
+    await updateHighlights();
+}
+
 ~async function init() {
     config = await loadConfig();
     user = await registerUser();
 
     createHighlights();
 
-    setInterval(async () => {
-        // checking the DOM is way more cheap than a network request and
-        // we're only interested in updates of user's powerup on selection page
-        if (!isPlayButtonExists() || isAdContainerVisible()) {
-            return;
-        }
+    if (config.showButtons) {
+        createButtons();
+    }
 
-        user = await fetchUser();
-        await updateHighlights();
-    }, 5000);
+    await waitForAdContainerToBeHidden();
+    showButtons();
+    await updateHighlights();
 
-    // hide highlights if user navigates away from the selection page
+    setInterval(updateState, 5000);
+
+    const eventSource = new EventSource(`${config.serverUrl}/room/${config.roomId}/event-stream?access_token=${config.serverAccessToken}`);
+    eventSource.addEventListener('message', updateState);
+
+
+    // hide highlights and buttons if user navigates away from the selection page
     onBodyMutation(() => {
         if (!isPlayButtonExists() || isAdContainerVisible()) {
             $highlightUp.classList.add('cfp__hidden');
             $highlightDown.classList.add('cfp__hidden');
+        }
+
+        if (isPlayButtonExists()) {
+            $buttonsContainer.classList.remove('cfp__hidden');
+        } else {
+            $buttonsContainer.classList.add('cfp__hidden');
         }
     });
 
